@@ -4,9 +4,5 @@ FROM gcr.io/google-appengine/openjdk:8
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
 
-# Install CloudProxy
-ADD https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 ./cloud_sql_proxy
-RUN chmod +x ./cloud_sql_proxy
-
 #Download the latest version of Metabase
-ADD http://downloads.metabase.com/v0.21.1/metabase.jar ./metabase.jar
+ADD http://downloads.metabase.com/v0.59.4/metabase.jar ./metabase.jar
