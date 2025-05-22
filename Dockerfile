@@ -1,62 +1,12 @@
-###################
-# STAGE 1: builder
-###################
+FROM gcr.io/google-appengine/openjdk:8
 
-FROM node:22-bullseye as builder
+# Set locale to UTF-8
+ENV LANG C.UTF-8
+ENV LC_ALL C.UTF-8
 
-ARG MB_EDITION=oss
-ARG VERSION=v0.54.9
+# Install CloudProxy
+ADD https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 ./cloud_sql_proxy
+RUN chmod +x ./cloud_sql_proxy
 
-WORKDIR /home/node
-
-RUN apt-get update && apt-get upgrade -y && apt-get install wget apt-transport-https gpg curl git -y \
-    && wget -qO - https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor | tee /etc/apt/trusted.gpg.d/adoptium.gpg > /dev/null \
-    && echo "deb https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" | tee /etc/apt/sources.list.d/adoptium.list \
-    && apt-get update \
-    && apt install temurin-21-jdk -y \
-    && curl -O https://download.clojure.org/install/linux-install-1.12.0.1488.sh \
-    && chmod +x linux-install-1.12.0.1488.sh \
-    && ./linux-install-1.12.0.1488.sh
-
-COPY . .
-
-# version is pulled from git, but git doesn't trust the directory due to different owners
-RUN git config --global --add safe.directory /home/node
-
-# install frontend dependencies
-RUN yarn --frozen-lockfile
-
-RUN INTERACTIVE=false CI=true MB_EDITION=$MB_EDITION bin/build.sh :version ${VERSION}
-
-# ###################
-# # STAGE 2: runner
-# ###################
-
-## Remember that this runner image needs to be the same as bin/docker/Dockerfile with the exception that this one grabs the
-## jar from the previous stage rather than the local build
-## we're not yet there to provide an ARM runner till https://github.com/adoptium/adoptium/issues/96 is ready
-
-FROM eclipse-temurin:21-jre-alpine as runner
-
-ENV FC_LANG en-US LC_CTYPE en_US.UTF-8
-
-# dependencies
-RUN apk add -U bash fontconfig curl font-noto font-noto-arabic font-noto-hebrew font-noto-cjk java-cacerts && \
-    apk upgrade && \
-    rm -rf /var/cache/apk/* && \
-    mkdir -p /app/certs && \
-    curl https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem -o /app/certs/rds-combined-ca-bundle.pem  && \
-    /opt/java/openjdk/bin/keytool -noprompt -import -trustcacerts -alias aws-rds -file /app/certs/rds-combined-ca-bundle.pem -keystore /etc/ssl/certs/java/cacerts -keypass changeit -storepass changeit && \
-    curl https://cacerts.digicert.com/DigiCertGlobalRootG2.crt.pem -o /app/certs/DigiCertGlobalRootG2.crt.pem  && \
-    /opt/java/openjdk/bin/keytool -noprompt -import -trustcacerts -alias azure-cert -file /app/certs/DigiCertGlobalRootG2.crt.pem -keystore /etc/ssl/certs/java/cacerts -keypass changeit -storepass changeit && \
-    mkdir -p /plugins && chmod a+rwx /plugins
-
-# add Metabase script and uberjar
-COPY --from=builder /home/node/target/uberjar/metabase.jar /app/
-COPY bin/docker/run_metabase.sh /app/
-
-# expose our default runtime port
-EXPOSE 3000
-
-# run it
-ENTRYPOINT ["/app/run_metabase.sh"]
+#Download the latest version of Metabase
+ADD http://downloads.metabase.com/v0.21.1/metabase.jar ./metabase.jar
