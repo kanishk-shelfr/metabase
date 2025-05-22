@@ -11,7 +11,7 @@ resources:
 
 readiness_check:
   path: "/api/health"
-  check_interval_sec: 20
+  check_interval_sec: 650
   timeout_sec: 600
   failure_threshold: 2
   success_threshold: 2
