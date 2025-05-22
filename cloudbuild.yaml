@@ -1,0 +1,5 @@
+steps:
+- name: 'gcr.io/google-appengine/openjdk:8'
+images: 
+- 'gcr.io/google-appengine/openjdk:8'
+timeout: 3600s
